@@ -1,0 +1,47 @@
+
+name: Auto Sync OpenAlgo
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream https://github.com/marketcalls/openalgo.git
+          git fetch upstream main
+
+      - name: Merge upstream changes
+        id: merge
+        continue-on-error: true
+        run: git merge --no-edit upstream/main
+
+      - name: Push changes if merge succeeds
+        if: steps.merge.outcome == 'success'
+        run: git push origin main
+
+      - name: Report merge conflict
+        if: steps.merge.outcome == 'failure'
+        run: |
+          echo "::error::Upstream merge failed. Manual conflict resolution is required."
+          exit 1
